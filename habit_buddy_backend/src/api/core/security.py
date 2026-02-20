@@ -1,23 +1,43 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import jwt
-from passlib.context import CryptContext
 
 from src.api.core.config import get_settings
 
-PWD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hashpw(password: str) -> str:
+    """
+    Internal helper for hashing passwords.
+
+    We intentionally use bcrypt directly instead of passlib's bcrypt handler because
+    passlib 1.7.4 is not compatible with bcrypt>=4 (bcrypt 5 removed __about__),
+    which caused /auth/register to raise 500s at runtime.
+    """
+    pw_bytes = password.encode("utf-8")
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
+
+
+def _verifypw(password: str, password_hash: str) -> bool:
+    """Internal helper for verifying bcrypt hashes."""
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except Exception:
+        # If the stored hash is malformed or not bcrypt, treat as invalid credentials.
+        return False
 
 
 # PUBLIC_INTERFACE
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
-    return PWD_CONTEXT.hash(password)
+    return _hashpw(password)
 
 
 # PUBLIC_INTERFACE
 def verify_password(password: str, password_hash: str) -> bool:
     """Verify a plaintext password against a stored hash."""
-    return PWD_CONTEXT.verify(password, password_hash)
+    return _verifypw(password, password_hash)
 
 
 # PUBLIC_INTERFACE
