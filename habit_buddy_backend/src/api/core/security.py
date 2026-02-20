@@ -24,6 +24,8 @@ def verify_password(password: str, password_hash: str) -> bool:
 def create_access_token(*, subject: str) -> str:
     """Create a signed JWT access token for the given subject (user_id)."""
     s = get_settings()
+    if not s.jwt_secret_key:
+        raise RuntimeError("Missing required env var JWT_SECRET_KEY")
     now = datetime.now(timezone.utc)
     exp = now + timedelta(minutes=s.access_token_exp_minutes)
     payload = {"sub": subject, "iat": int(now.timestamp()), "exp": int(exp.timestamp())}
@@ -34,4 +36,6 @@ def create_access_token(*, subject: str) -> str:
 def decode_access_token(token: str) -> dict:
     """Decode and validate a JWT access token. Raises jwt exceptions on failure."""
     s = get_settings()
+    if not s.jwt_secret_key:
+        raise RuntimeError("Missing required env var JWT_SECRET_KEY")
     return jwt.decode(token, s.jwt_secret_key, algorithms=[s.jwt_algorithm])
